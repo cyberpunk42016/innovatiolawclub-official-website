@@ -25,6 +25,7 @@
         <a href="#axes">Axes</a>
         <a href="#process">Why Join</a>
         <a href="#enroll">Enroll</a>
+        <a href="#" id="admin-trigger" class="admin-trigger-link">Admin</a>
       </nav>
     </div>
   </header>
@@ -302,5 +303,821 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="script.js"></script>
+
+  <!--
+    =====================================================================
+    ADMIN DASHBOARD — fill in the constants below before using:
+      • SUPABASE_URL       — your Supabase project URL
+      • SUPABASE_ANON_KEY  — your Supabase anon public key
+      • NETLIFY_TOKEN      — a Netlify personal access token
+      • NETLIFY_SITE_ID    — the target site id
+      • ADMIN_PASSWORD     — the password used to unlock the dashboard
+    =====================================================================
+  -->
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+
+  <style>
+    /* ===== Admin trigger link ===== */
+    .admin-trigger-link {
+      opacity: .55;
+      font-size: .8rem;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .admin-trigger-link:hover { opacity: 1; }
+
+    /* ===== Password modal ===== */
+    #admin-modal {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.78);
+      backdrop-filter: blur(6px);
+      display: none;
+      align-items: center; justify-content: center;
+      z-index: 9998;
+      font-family: 'Inter', system-ui, sans-serif;
+    }
+    #admin-modal.open { display: flex; }
+    #admin-modal .modal-card {
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 14px;
+      padding: 28px 28px 24px;
+      width: min(360px, 90vw);
+      box-shadow: 0 20px 60px rgba(0,0,0,.5);
+      color: #fff;
+    }
+    #admin-modal h2 {
+      margin: 0 0 6px;
+      font-size: 1.1rem;
+      font-weight: 600;
+    }
+    #admin-modal p.modal-sub {
+      margin: 0 0 18px;
+      color: #888;
+      font-size: .85rem;
+    }
+    #admin-modal input {
+      width: 100%;
+      padding: 12px 14px;
+      background: #0f0f0f;
+      border: 1px solid #2a2a2a;
+      border-radius: 8px;
+      color: #fff;
+      font-size: .95rem;
+      font-family: 'JetBrains Mono', monospace;
+      outline: none;
+      transition: border-color .15s;
+    }
+    #admin-modal input:focus { border-color: #00b4ff; }
+    #admin-modal .modal-actions {
+      display: flex; gap: 10px; margin-top: 14px;
+    }
+    #admin-modal button {
+      flex: 1;
+      padding: 11px;
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: .9rem;
+      transition: filter .15s, background .15s;
+    }
+    #admin-modal .btn-primary { background: #00b4ff; color: #000; }
+    #admin-modal .btn-primary:hover { filter: brightness(1.1); }
+    #admin-modal .btn-secondary { background: transparent; color: #888; border: 1px solid #2a2a2a; }
+    #admin-modal .btn-secondary:hover { color: #fff; }
+    #admin-modal .modal-error {
+      color: #ff5d5d;
+      font-size: .82rem;
+      margin: 10px 0 0;
+      min-height: 1em;
+    }
+    @keyframes shake {
+      0%,100% { transform: translateX(0); }
+      20%,60% { transform: translateX(-9px); }
+      40%,80% { transform: translateX(9px); }
+    }
+    #admin-modal.shake .modal-card { animation: shake .4s; }
+
+    /* ===== Dashboard shell ===== */
+    #admin-dashboard {
+      position: fixed; inset: 0;
+      background: #0f0f0f;
+      color: #e6e6e6;
+      z-index: 9999;
+      display: none;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      overflow: hidden;
+    }
+    #admin-dashboard.open { display: block; }
+    #admin-dashboard *, #admin-dashboard *::before, #admin-dashboard *::after {
+      box-sizing: border-box;
+    }
+
+    .ad-sidebar {
+      position: absolute; top: 0; left: 0; bottom: 0;
+      width: 220px;
+      background: #141414;
+      border-right: 1px solid #1f1f1f;
+      display: flex; flex-direction: column;
+      padding: 20px 0;
+      transition: transform .25s ease;
+      z-index: 2;
+    }
+    .ad-brand {
+      padding: 0 22px 18px;
+      border-bottom: 1px solid #1f1f1f;
+      font-weight: 700;
+      font-size: 1rem;
+      letter-spacing: .04em;
+      color: #fff;
+      display: flex; align-items: center; gap: 9px;
+    }
+    .ad-brand-dot {
+      width: 9px; height: 9px; border-radius: 2px; background: #00b4ff;
+      box-shadow: 0 0 12px #00b4ff;
+    }
+    .ad-nav { display: flex; flex-direction: column; padding: 14px 0; gap: 2px; }
+    .ad-nav button {
+      background: transparent; border: 0; color: #9a9a9a;
+      text-align: left;
+      padding: 10px 22px;
+      font-size: .9rem;
+      font-family: inherit;
+      cursor: pointer;
+      display: flex; align-items: center; gap: 12px;
+      border-left: 2px solid transparent;
+      transition: color .15s, background .15s, border-color .15s;
+    }
+    .ad-nav button:hover { color: #fff; background: #1a1a1a; }
+    .ad-nav button.active {
+      color: #fff;
+      background: #1a1a1a;
+      border-left-color: #00b4ff;
+    }
+    .ad-nav-icon { width: 16px; height: 16px; opacity: .85; }
+
+    .ad-header {
+      position: absolute; top: 0; left: 220px; right: 0;
+      height: 60px;
+      background: #141414;
+      border-bottom: 1px solid #1f1f1f;
+      display: flex; align-items: center;
+      padding: 0 24px;
+      gap: 16px;
+      z-index: 1;
+    }
+    .ad-hamburger {
+      display: none;
+      background: transparent; border: 0; color: #fff;
+      font-size: 1.4rem; cursor: pointer; padding: 4px 8px;
+    }
+    .ad-site-name {
+      font-weight: 700; color: #fff; font-size: 1rem;
+    }
+    .ad-header-spacer { flex: 1; }
+    .ad-user-tag {
+      font-size: .78rem;
+      color: #888;
+      padding: 5px 10px;
+      border: 1px solid #2a2a2a;
+      border-radius: 999px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .ad-user-tag .dot {
+      display: inline-block; width: 6px; height: 6px; background: #34d399;
+      border-radius: 50%; margin-right: 6px; vertical-align: middle;
+    }
+    .ad-close, .ad-logout {
+      background: transparent;
+      color: #9a9a9a;
+      border: 1px solid #2a2a2a;
+      padding: 7px 13px;
+      border-radius: 8px;
+      font-size: .82rem;
+      cursor: pointer;
+      font-family: inherit;
+      transition: color .15s, border-color .15s;
+    }
+    .ad-close:hover, .ad-logout:hover { color: #fff; border-color: #444; }
+    .ad-logout { color: #ff8585; }
+    .ad-logout:hover { color: #ff5d5d; border-color: #ff5d5d; }
+
+    .ad-main {
+      position: absolute; top: 60px; left: 220px; right: 0; bottom: 0;
+      overflow-y: auto;
+      padding: 28px 28px 60px;
+    }
+    .ad-section { display: none; }
+    .ad-section.active { display: block; }
+    .ad-section h1 {
+      margin: 0 0 4px;
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: #fff;
+    }
+    .ad-section .ad-section-sub {
+      margin: 0 0 22px;
+      color: #777;
+      font-size: .9rem;
+    }
+
+    /* ===== Stats cards ===== */
+    .ad-stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 14px;
+      margin-bottom: 26px;
+    }
+    .ad-stat-card {
+      background: #1a1a1a;
+      border: 1px solid #1f1f1f;
+      border-radius: 12px;
+      padding: 18px 18px 16px;
+      transition: border-color .15s, transform .15s;
+    }
+    .ad-stat-card:hover { border-color: #2a2a2a; transform: translateY(-1px); }
+    .ad-stat-icon {
+      width: 36px; height: 36px;
+      border-radius: 9px;
+      background: rgba(0,180,255,.1);
+      color: #00b4ff;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.05rem;
+      margin-bottom: 14px;
+    }
+    .ad-stat-num {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: #fff;
+      line-height: 1;
+    }
+    .ad-stat-label {
+      margin-top: 6px;
+      font-size: .8rem;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+    }
+
+    /* ===== Tables ===== */
+    .ad-table-wrap {
+      background: #1a1a1a;
+      border: 1px solid #1f1f1f;
+      border-radius: 12px;
+      overflow: auto;
+      max-width: 100%;
+    }
+    .ad-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .82rem;
+      min-width: 540px;
+    }
+    .ad-table th, .ad-table td {
+      text-align: left;
+      padding: 11px 16px;
+      border-bottom: 1px solid #1f1f1f;
+      white-space: nowrap;
+    }
+    .ad-table th {
+      color: #888;
+      font-weight: 500;
+      text-transform: uppercase;
+      font-size: .7rem;
+      letter-spacing: .08em;
+      background: #161616;
+      position: sticky; top: 0;
+    }
+    .ad-table tbody tr:nth-child(even) { background: #171717; }
+    .ad-table tbody tr:hover { background: #1f1f1f; }
+    .ad-table td { color: #d2d2d2; }
+
+    /* ===== Deploy list ===== */
+    .ad-deploy-list { list-style: none; padding: 0; margin: 0; }
+    .ad-deploy-item {
+      display: grid;
+      grid-template-columns: auto 1fr auto auto;
+      gap: 14px;
+      align-items: center;
+      padding: 14px 16px;
+      background: #1a1a1a;
+      border: 1px solid #1f1f1f;
+      border-radius: 10px;
+      margin-bottom: 8px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .82rem;
+    }
+    .ad-state-badge {
+      font-size: .7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 4px 9px;
+      border-radius: 999px;
+      letter-spacing: .06em;
+    }
+    .ad-state-ready, .ad-state-success { background: rgba(52,211,153,.15); color: #34d399; }
+    .ad-state-building, .ad-state-enqueued, .ad-state-uploading, .ad-state-pending { background: rgba(251,191,36,.15); color: #fbbf24; }
+    .ad-state-error, .ad-state-failed { background: rgba(255,93,93,.15); color: #ff5d5d; }
+    .ad-state-other { background: rgba(150,150,150,.15); color: #aaa; }
+    .ad-deploy-id { color: #888; }
+    .ad-deploy-branch { color: #00b4ff; }
+    .ad-deploy-time { color: #777; }
+
+    /* ===== Loading / error ===== */
+    .ad-loading {
+      display: flex; align-items: center; gap: 10px;
+      padding: 14px 0;
+      color: #888;
+      font-size: .9rem;
+    }
+    .ad-spinner {
+      width: 14px; height: 14px;
+      border: 2px solid #2a2a2a;
+      border-top-color: #00b4ff;
+      border-radius: 50%;
+      animation: ad-spin .8s linear infinite;
+    }
+    @keyframes ad-spin { to { transform: rotate(360deg); } }
+    .ad-error {
+      background: rgba(255,93,93,.08);
+      border: 1px solid rgba(255,93,93,.3);
+      color: #ff8585;
+      padding: 12px 14px;
+      border-radius: 8px;
+      font-size: .85rem;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .ad-empty {
+      padding: 18px;
+      color: #666;
+      text-align: center;
+      font-size: .88rem;
+    }
+
+    /* ===== Settings ===== */
+    .ad-settings-card {
+      background: #1a1a1a;
+      border: 1px solid #1f1f1f;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 14px;
+    }
+    .ad-settings-card h3 {
+      margin: 0 0 6px; font-size: .98rem; color: #fff;
+    }
+    .ad-settings-card p {
+      margin: 0 0 4px; color: #888; font-size: .85rem;
+    }
+    .ad-settings-card code {
+      font-family: 'JetBrains Mono', monospace;
+      background: #0f0f0f;
+      padding: 2px 7px;
+      border-radius: 4px;
+      color: #00b4ff;
+      font-size: .8rem;
+    }
+
+    /* ===== Mobile ===== */
+    @media (max-width: 760px) {
+      .ad-sidebar {
+        transform: translateX(-100%);
+        box-shadow: 6px 0 24px rgba(0,0,0,.4);
+      }
+      .ad-sidebar.open { transform: translateX(0); }
+      .ad-header { left: 0; }
+      .ad-main { left: 0; padding: 20px 16px 60px; }
+      .ad-hamburger { display: block; }
+      .ad-user-tag { display: none; }
+    }
+  </style>
+
+  <!-- Password modal -->
+  <div id="admin-modal" role="dialog" aria-modal="true" aria-labelledby="admin-modal-title">
+    <div class="modal-card">
+      <h2 id="admin-modal-title">Admin Access</h2>
+      <p class="modal-sub">Enter the admin password to continue.</p>
+      <input id="admin-password-input" type="password" placeholder="Password" autocomplete="off" />
+      <p class="modal-error" id="admin-modal-error"></p>
+      <div class="modal-actions">
+        <button class="btn-secondary" id="admin-modal-cancel" type="button">Cancel</button>
+        <button class="btn-primary" id="admin-modal-submit" type="button">Unlock</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dashboard -->
+  <div id="admin-dashboard" role="region" aria-label="Admin dashboard">
+    <aside class="ad-sidebar" id="ad-sidebar">
+      <div class="ad-brand">
+        <span class="ad-brand-dot"></span>
+        <span>ILC Admin</span>
+      </div>
+      <nav class="ad-nav" id="ad-nav">
+        <button data-section="overview" class="active"><span class="ad-nav-icon">▦</span> Overview</button>
+        <button data-section="users"><span class="ad-nav-icon">◉</span> Users</button>
+        <button data-section="database"><span class="ad-nav-icon">▤</span> Database</button>
+        <button data-section="forms"><span class="ad-nav-icon">✎</span> Forms</button>
+        <button data-section="deployments"><span class="ad-nav-icon">▲</span> Deployments</button>
+        <button data-section="settings"><span class="ad-nav-icon">⚙</span> Settings</button>
+      </nav>
+    </aside>
+
+    <header class="ad-header">
+      <button class="ad-hamburger" id="ad-hamburger" aria-label="Toggle navigation">☰</button>
+      <span class="ad-site-name">Innovation Law Club</span>
+      <div class="ad-header-spacer"></div>
+      <span class="ad-user-tag"><span class="dot"></span>logged in as admin</span>
+      <button class="ad-close" id="ad-close" type="button">Back to site</button>
+      <button class="ad-logout" id="ad-logout" type="button">Logout</button>
+    </header>
+
+    <main class="ad-main">
+      <section class="ad-section active" data-section="overview">
+        <h1>Overview</h1>
+        <p class="ad-section-sub">High-level summary across Netlify and Supabase.</p>
+        <div class="ad-stats-grid" id="ad-stats">
+          <div class="ad-stat-card"><div class="ad-stat-icon">▲</div><div class="ad-stat-num" id="stat-deploys">—</div><div class="ad-stat-label">Total Deploys</div></div>
+          <div class="ad-stat-card"><div class="ad-stat-icon">●</div><div class="ad-stat-num" id="stat-last-deploy">—</div><div class="ad-stat-label">Last Deploy</div></div>
+          <div class="ad-stat-card"><div class="ad-stat-icon">✎</div><div class="ad-stat-num" id="stat-submissions">—</div><div class="ad-stat-label">Form Submissions</div></div>
+          <div class="ad-stat-card"><div class="ad-stat-icon">◉</div><div class="ad-stat-num" id="stat-users">—</div><div class="ad-stat-label">Supabase Users</div></div>
+        </div>
+        <div id="ad-overview-status"></div>
+      </section>
+
+      <section class="ad-section" data-section="users">
+        <h1>Users</h1>
+        <p class="ad-section-sub">Rows from the Supabase <code>users</code> table.</p>
+        <div id="ad-users-content"></div>
+      </section>
+
+      <section class="ad-section" data-section="database">
+        <h1>Database</h1>
+        <p class="ad-section-sub">Rows from the Supabase <code id="ad-db-tablename">data</code> table.</p>
+        <div id="ad-db-content"></div>
+      </section>
+
+      <section class="ad-section" data-section="forms">
+        <h1>Forms</h1>
+        <p class="ad-section-sub">Netlify forms and submissions.</p>
+        <div id="ad-forms-content"></div>
+      </section>
+
+      <section class="ad-section" data-section="deployments">
+        <h1>Deployments</h1>
+        <p class="ad-section-sub">Most recent deploys for this site.</p>
+        <div id="ad-deploys-content"></div>
+      </section>
+
+      <section class="ad-section" data-section="settings">
+        <h1>Settings</h1>
+        <p class="ad-section-sub">Configuration constants used by the dashboard.</p>
+        <div class="ad-settings-card">
+          <h3>Supabase</h3>
+          <p>Configured via <code>SUPABASE_URL</code> and <code>SUPABASE_ANON_KEY</code>.</p>
+          <p>Database table for the Database tab: <code id="ad-db-tablename-2">data</code></p>
+        </div>
+        <div class="ad-settings-card">
+          <h3>Netlify</h3>
+          <p>Configured via <code>NETLIFY_TOKEN</code> and <code>NETLIFY_SITE_ID</code>.</p>
+        </div>
+        <div class="ad-settings-card">
+          <h3>Access</h3>
+          <p>Password unlock via <code>ADMIN_PASSWORD</code>; session flag stored in <code>sessionStorage</code>.</p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+  (function () {
+    // ====================================================================
+    // FILL THESE IN
+    // ====================================================================
+    const SUPABASE_URL      = '';
+    const SUPABASE_ANON_KEY = '';
+    const NETLIFY_TOKEN     = '';
+    const NETLIFY_SITE_ID   = '';
+    const ADMIN_PASSWORD    = '';
+    // Optional: rename the generic table used by the "Database" section.
+    const DATABASE_TABLE_NAME = 'data';
+    // ====================================================================
+
+    const SESSION_KEY = 'ilc_admin_unlocked';
+
+    // Reflect the table name in the UI.
+    document.getElementById('ad-db-tablename').textContent = DATABASE_TABLE_NAME;
+    document.getElementById('ad-db-tablename-2').textContent = DATABASE_TABLE_NAME;
+
+    // ----- Supabase client (lazy) -----
+    let supabaseClient = null;
+    function getSupabase() {
+      if (supabaseClient) return supabaseClient;
+      if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return null;
+      if (!window.supabase || !window.supabase.createClient) return null;
+      supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      return supabaseClient;
+    }
+
+    // ----- DOM refs -----
+    const dashboard = document.getElementById('admin-dashboard');
+    const modal     = document.getElementById('admin-modal');
+    const modalErr  = document.getElementById('admin-modal-error');
+    const passInput = document.getElementById('admin-password-input');
+    const trigger   = document.getElementById('admin-trigger');
+    const navBtns   = document.querySelectorAll('#ad-nav button');
+    const sections  = document.querySelectorAll('#admin-dashboard .ad-section');
+
+    // ----- Toggle helpers -----
+    const mainEl = document.querySelector('main') || document.getElementById('app');
+
+    function openDashboard() {
+      if (mainEl) mainEl.style.display = 'none';
+      dashboard.classList.add('open');
+      document.body.style.overflow = 'hidden';
+      activateSection('overview');
+    }
+    function closeDashboard() {
+      dashboard.classList.remove('open');
+      if (mainEl) mainEl.style.display = '';
+      document.body.style.overflow = '';
+    }
+
+    // ----- Modal -----
+    function openModal() {
+      modalErr.textContent = '';
+      passInput.value = '';
+      modal.classList.add('open');
+      setTimeout(() => passInput.focus(), 50);
+    }
+    function closeModal() { modal.classList.remove('open'); }
+    function shakeModal(msg) {
+      modalErr.textContent = msg || 'Incorrect password';
+      modal.classList.remove('shake');
+      void modal.offsetWidth;
+      modal.classList.add('shake');
+    }
+    function tryUnlock() {
+      const v = passInput.value;
+      if (!ADMIN_PASSWORD) {
+        shakeModal('ADMIN_PASSWORD constant is empty');
+        return;
+      }
+      if (v === ADMIN_PASSWORD) {
+        sessionStorage.setItem(SESSION_KEY, '1');
+        closeModal();
+        openDashboard();
+      } else {
+        shakeModal();
+      }
+    }
+
+    document.getElementById('admin-modal-submit').addEventListener('click', tryUnlock);
+    document.getElementById('admin-modal-cancel').addEventListener('click', closeModal);
+    passInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') tryUnlock(); });
+    modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+
+    if (trigger) {
+      trigger.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (sessionStorage.getItem(SESSION_KEY) === '1') openDashboard();
+        else openModal();
+      });
+    }
+
+    document.getElementById('ad-close').addEventListener('click', closeDashboard);
+    document.getElementById('ad-logout').addEventListener('click', () => {
+      sessionStorage.removeItem(SESSION_KEY);
+      closeDashboard();
+    });
+
+    // Esc to close
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape') return;
+      if (modal.classList.contains('open')) closeModal();
+      else if (dashboard.classList.contains('open')) closeDashboard();
+    });
+
+    // ----- Sidebar nav -----
+    const sidebar = document.getElementById('ad-sidebar');
+    document.getElementById('ad-hamburger').addEventListener('click', () => sidebar.classList.toggle('open'));
+
+    navBtns.forEach((b) => {
+      b.addEventListener('click', () => {
+        activateSection(b.dataset.section);
+        if (window.innerWidth <= 760) sidebar.classList.remove('open');
+      });
+    });
+
+    function activateSection(name) {
+      navBtns.forEach((b) => b.classList.toggle('active', b.dataset.section === name));
+      sections.forEach((s) => s.classList.toggle('active', s.dataset.section === name));
+      // Lazy-load data per section.
+      if (name === 'overview')    loadOverview();
+      if (name === 'users')       loadUsers();
+      if (name === 'database')    loadDatabase();
+      if (name === 'forms')       loadForms();
+      if (name === 'deployments') loadDeployments();
+    }
+
+    // ----- Render helpers -----
+    function htmlEscape(s) {
+      return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+    function loadingHtml(label) {
+      return '<div class="ad-loading"><span class="ad-spinner"></span><span>' + htmlEscape(label || 'Loading...') + '</span></div>';
+    }
+    function errorHtml(msg) {
+      return '<div class="ad-error">' + htmlEscape(msg) + '</div>';
+    }
+    function emptyHtml(msg) {
+      return '<div class="ad-empty">' + htmlEscape(msg) + '</div>';
+    }
+    function fmtDate(iso) {
+      if (!iso) return '—';
+      const d = new Date(iso);
+      if (isNaN(d.getTime())) return iso;
+      return d.toISOString().replace('T', ' ').slice(0, 19) + 'Z';
+    }
+    function stateClass(state) {
+      const s = (state || '').toLowerCase();
+      if (s === 'ready' || s === 'success') return 'ad-state-ready';
+      if (s === 'building' || s === 'enqueued' || s === 'uploading' || s === 'pending') return 'ad-state-building';
+      if (s === 'error' || s === 'failed') return 'ad-state-error';
+      return 'ad-state-other';
+    }
+
+    // ----- Netlify -----
+    async function netlifyFetch(path) {
+      if (!NETLIFY_TOKEN || !NETLIFY_SITE_ID) {
+        throw new Error('Netlify credentials not configured (NETLIFY_TOKEN / NETLIFY_SITE_ID).');
+      }
+      const url = 'https://api.netlify.com/api/v1/sites/' + encodeURIComponent(NETLIFY_SITE_ID) + path;
+      const res = await fetch(url, { headers: { 'Authorization': 'Bearer ' + NETLIFY_TOKEN } });
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        throw new Error('Netlify API ' + res.status + ': ' + text.slice(0, 200));
+      }
+      return res.json();
+    }
+
+    // ----- Sections -----
+    let _overviewLoading = false;
+    async function loadOverview() {
+      if (_overviewLoading) return;
+      _overviewLoading = true;
+      const status = document.getElementById('ad-overview-status');
+      status.innerHTML = loadingHtml('Aggregating stats...');
+      const errs = [];
+
+      // Deploys
+      try {
+        const deploys = await netlifyFetch('/deploys');
+        document.getElementById('stat-deploys').textContent = Array.isArray(deploys) ? deploys.length : '—';
+        const last = Array.isArray(deploys) && deploys[0] ? deploys[0].state : '—';
+        document.getElementById('stat-last-deploy').textContent = last || '—';
+      } catch (e) {
+        document.getElementById('stat-deploys').textContent = '—';
+        document.getElementById('stat-last-deploy').textContent = '—';
+        errs.push('Deploys: ' + e.message);
+      }
+
+      // Submissions
+      try {
+        const subs = await netlifyFetch('/submissions');
+        document.getElementById('stat-submissions').textContent = Array.isArray(subs) ? subs.length : '—';
+      } catch (e) {
+        document.getElementById('stat-submissions').textContent = '—';
+        errs.push('Submissions: ' + e.message);
+      }
+
+      // Supabase users
+      try {
+        const sb = getSupabase();
+        if (!sb) throw new Error('Supabase not configured.');
+        const { data, error, count } = await sb.from('users').select('*', { count: 'exact', head: true });
+        if (error) throw new Error(error.message);
+        document.getElementById('stat-users').textContent = (count != null ? count : (data ? data.length : '—'));
+      } catch (e) {
+        document.getElementById('stat-users').textContent = '—';
+        errs.push('Users: ' + e.message);
+      }
+
+      status.innerHTML = errs.length ? errorHtml(errs.join('  •  ')) : '';
+      _overviewLoading = false;
+    }
+
+    function renderTable(rows, columns, container) {
+      if (!rows || rows.length === 0) {
+        container.innerHTML = emptyHtml('No rows found.');
+        return;
+      }
+      const cols = columns || Object.keys(rows[0]);
+      let html = '<div class="ad-table-wrap"><table class="ad-table"><thead><tr>';
+      cols.forEach((c) => { html += '<th>' + htmlEscape(c) + '</th>'; });
+      html += '</tr></thead><tbody>';
+      rows.forEach((r) => {
+        html += '<tr>';
+        cols.forEach((c) => {
+          let v = r[c];
+          if (v && typeof v === 'object') v = JSON.stringify(v);
+          html += '<td>' + htmlEscape(v) + '</td>';
+        });
+        html += '</tr>';
+      });
+      html += '</tbody></table></div>';
+      container.innerHTML = html;
+    }
+
+    async function loadUsers() {
+      const c = document.getElementById('ad-users-content');
+      c.innerHTML = loadingHtml('Loading users...');
+      try {
+        const sb = getSupabase();
+        if (!sb) throw new Error('Supabase not configured.');
+        const { data, error } = await sb.from('users').select('*');
+        if (error) throw new Error(error.message);
+        renderTable(data, ['id', 'email', 'created_at'], c);
+      } catch (e) {
+        c.innerHTML = errorHtml(e.message);
+      }
+    }
+
+    async function loadDatabase() {
+      const c = document.getElementById('ad-db-content');
+      c.innerHTML = loadingHtml('Loading rows...');
+      try {
+        const sb = getSupabase();
+        if (!sb) throw new Error('Supabase not configured.');
+        const { data, error } = await sb.from(DATABASE_TABLE_NAME).select('*');
+        if (error) throw new Error(error.message);
+        renderTable(data, null, c);
+      } catch (e) {
+        c.innerHTML = errorHtml(e.message);
+      }
+    }
+
+    async function loadForms() {
+      const c = document.getElementById('ad-forms-content');
+      c.innerHTML = loadingHtml('Loading forms...');
+      try {
+        const forms = await netlifyFetch('/forms');
+        if (!forms || forms.length === 0) {
+          c.innerHTML = emptyHtml('No forms found for this site.');
+          return;
+        }
+        const first = forms[0];
+        let header = '<div class="ad-settings-card"><h3>' + htmlEscape(first.name || '(unnamed form)') + '</h3>';
+        header += '<p>Form id: <code>' + htmlEscape(first.id) + '</code> &nbsp;•&nbsp; ' + htmlEscape(forms.length) + ' form(s) total</p></div>';
+
+        const subs = await netlifyFetch('/submissions');
+        const wrap = document.createElement('div');
+        if (!subs || subs.length === 0) {
+          wrap.innerHTML = emptyHtml('No submissions yet.');
+        } else {
+          const flat = subs.map((s) => {
+            const base = { id: s.id, form_name: s.form_name || '', email: s.email || '', name: s.name || '', created_at: s.created_at || '' };
+            return base;
+          });
+          renderTable(flat, ['id', 'form_name', 'name', 'email', 'created_at'], wrap);
+        }
+        c.innerHTML = header + wrap.innerHTML;
+      } catch (e) {
+        c.innerHTML = errorHtml(e.message);
+      }
+    }
+
+    async function loadDeployments() {
+      const c = document.getElementById('ad-deploys-content');
+      c.innerHTML = loadingHtml('Loading deploys...');
+      try {
+        const deploys = await netlifyFetch('/deploys');
+        const recent = (Array.isArray(deploys) ? deploys : []).slice(0, 5);
+        if (recent.length === 0) {
+          c.innerHTML = emptyHtml('No deploys found.');
+          return;
+        }
+        let html = '<ul class="ad-deploy-list">';
+        recent.forEach((d) => {
+          html += '<li class="ad-deploy-item">';
+          html += '<span class="ad-state-badge ' + stateClass(d.state) + '">' + htmlEscape(d.state || 'unknown') + '</span>';
+          html += '<span class="ad-deploy-id">' + htmlEscape(d.id) + '</span>';
+          html += '<span class="ad-deploy-branch">' + htmlEscape(d.branch || '—') + '</span>';
+          html += '<span class="ad-deploy-time">' + htmlEscape(fmtDate(d.created_at)) + '</span>';
+          html += '</li>';
+        });
+        html += '</ul>';
+        c.innerHTML = html;
+      } catch (e) {
+        c.innerHTML = errorHtml(e.message);
+      }
+    }
+  })();
+  </script>
 </body>
 </html>
