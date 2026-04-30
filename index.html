@@ -303,6 +303,66 @@
     </section>
   </main>
 
+  <!-- FOOTER -->
+  <footer class="site-footer">
+    <div class="footer-container">
+      <div class="footer-grid">
+        <!-- Brand Section -->
+        <div class="footer-section footer-brand">
+          <div class="footer-brand-mark">
+            <span class="brand-mark">ILC</span>
+            <span class="brand-copy">Innovation Law Club</span>
+          </div>
+          <p class="footer-description">
+            A student space for ambitious thinkers who want to explore legal change, build practical skills, and create projects that matter.
+          </p>
+        </div>
+
+        <!-- Navigation Menu -->
+        <div class="footer-section">
+          <h3 class="footer-section-title">Navigation</h3>
+          <nav class="footer-nav">
+            <a href="#about">About</a>
+            <a href="#axes">Axes</a>
+            <a href="#process">Why Join</a>
+            <a href="#enroll">Apply</a>
+          </nav>
+        </div>
+
+        <!-- Contact Info -->
+        <div class="footer-section">
+          <h3 class="footer-section-title">Contact</h3>
+          <ul class="footer-contact-list">
+            <li>
+              <strong>Email:</strong>
+              <a href="mailto:lawclub.innovation@univ-alger.dz">lawclub.innovation@univ-alger.dz</a>
+            </li>
+            <li>
+              <strong>Location:</strong>
+              Faculty of Law, University of Algiers 1
+              <br>16000 Bir Mourad Rais, Algiers
+            </li>
+          </ul>
+        </div>
+
+        <!-- Social Media -->
+        <div class="footer-section">
+          <h3 class="footer-section-title">Follow Us</h3>
+          <nav class="footer-social">
+            <a href="https://www.linkedin.com/company/innovation-law-club/" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+            <a href="https://www.instagram.com/innovation_lawclub/" target="_blank" rel="noopener noreferrer">Instagram</a>
+            <a href="https://www.facebook.com/Innovation-Law-Club/" target="_blank" rel="noopener noreferrer">Facebook</a>
+            <a href="https://www.tiktok.com/@innovation_lawclub" target="_blank" rel="noopener noreferrer">TikTok</a>
+          </nav>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <p>&copy; 2026 Innovation Law Club. All rights reserved.</p>
+      </div>
+    </div>
+  </footer>
+
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="script.js"></script>
 
@@ -998,116 +1058,98 @@
         document.getElementById('stat-submissions').textContent = '—';
         errs.push('Submissions: ' + e.message);
       }
-
-      // Supabase users count
-      try {
-        const sb = getSupabase();
-        if (!sb) throw new Error('Supabase not configured');
-        const { count, error } = await sb.from('auth.users').select('id', { count: 'exact', head: true });
-        if (error) throw error;
-        document.getElementById('stat-users').textContent = count || '—';
-      } catch (e) {
-        document.getElementById('stat-users').textContent = '—';
-        errs.push('Users: ' + e.message);
-      }
-
-      if (errs.length > 0) {
-        status.innerHTML = errs.map((err) => errorHtml(err)).join('');
-      } else {
-        status.innerHTML = '<div class="ad-loading" style="color: #34d399;">✓ All systems connected</div>';
-      }
     }
 
-    let _usersLoading = false;
     async function loadUsers() {
-      if (_usersLoading) return;
-      _usersLoading = true;
       const content = document.getElementById('ad-users-content');
-      content.innerHTML = loadingHtml('Fetching users...');
+      content.innerHTML = loadingHtml('Loading users...');
       try {
         const sb = getSupabase();
         if (!sb) throw new Error('Supabase not configured');
-        const { data, error } = await sb.from('auth.users').select('*').limit(50);
+        const { data, error } = await sb.from('users').select('*').limit(20);
         if (error) throw error;
         if (!data || data.length === 0) {
-          content.innerHTML = emptyHtml('No users found');
+          content.innerHTML = emptyHtml('No users found.');
           return;
         }
         let html = '<div class="ad-table-wrap"><table class="ad-table"><thead><tr>';
-        Object.keys(data[0]).forEach(k => { html += '<th>' + htmlEscape(k) + '</th>'; });
+        Object.keys(data[0]).forEach(k => {
+          html += '<th>' + htmlEscape(k) + '</th>';
+        });
         html += '</tr></thead><tbody>';
         data.forEach(row => {
           html += '<tr>';
-          Object.values(row).forEach(v => { html += '<td>' + htmlEscape(v) + '</td>'; });
+          Object.values(row).forEach(v => {
+            html += '<td>' + htmlEscape(String(v == null ? '' : v)).slice(0, 50) + '</td>';
+          });
           html += '</tr>';
         });
         html += '</tbody></table></div>';
         content.innerHTML = html;
       } catch (e) {
-        content.innerHTML = errorHtml('Error loading users: ' + e.message);
+        content.innerHTML = errorHtml(e.message);
       }
     }
 
-    let _databaseLoading = false;
     async function loadDatabase() {
-      if (_databaseLoading) return;
-      _databaseLoading = true;
       const content = document.getElementById('ad-db-content');
-      content.innerHTML = loadingHtml('Fetching data...');
+      content.innerHTML = loadingHtml('Loading database...');
       try {
         const sb = getSupabase();
         if (!sb) throw new Error('Supabase not configured');
-        const { data, error } = await sb.from(DATABASE_TABLE_NAME).select('*').limit(50);
+        const { data, error } = await sb.from(DATABASE_TABLE_NAME).select('*').limit(20);
         if (error) throw error;
         if (!data || data.length === 0) {
-          content.innerHTML = emptyHtml('No records found in ' + DATABASE_TABLE_NAME);
+          content.innerHTML = emptyHtml('No data found.');
           return;
         }
         let html = '<div class="ad-table-wrap"><table class="ad-table"><thead><tr>';
-        Object.keys(data[0]).forEach(k => { html += '<th>' + htmlEscape(k) + '</th>'; });
+        Object.keys(data[0]).forEach(k => {
+          html += '<th>' + htmlEscape(k) + '</th>';
+        });
         html += '</tr></thead><tbody>';
         data.forEach(row => {
           html += '<tr>';
-          Object.values(row).forEach(v => { html += '<td>' + htmlEscape(v) + '</td>'; });
+          Object.values(row).forEach(v => {
+            html += '<td>' + htmlEscape(String(v == null ? '' : v)).slice(0, 50) + '</td>';
+          });
           html += '</tr>';
         });
         html += '</tbody></table></div>';
         content.innerHTML = html;
       } catch (e) {
-        content.innerHTML = errorHtml('Error loading database: ' + e.message);
+        content.innerHTML = errorHtml(e.message);
       }
     }
 
-    let _deploysLoading = false;
     async function loadDeployments() {
-      if (_deploysLoading) return;
-      _deploysLoading = true;
       const content = document.getElementById('ad-deploys-content');
-      content.innerHTML = loadingHtml('Fetching deployments...');
+      content.innerHTML = loadingHtml('Loading deployments...');
       try {
-        const deploys = await vercelFetch('/v6/deployments?projectId=' + encodeURIComponent(VERCEL_PROJECT_ID) + '&limit=30');
+        const deploys = await vercelFetch('/v6/deployments?projectId=' + encodeURIComponent(VERCEL_PROJECT_ID));
         const deployList = deploys.deployments || [];
         if (deployList.length === 0) {
-          content.innerHTML = emptyHtml('No deployments found');
+          content.innerHTML = emptyHtml('No deployments found.');
           return;
         }
         let html = '<ul class="ad-deploy-list">';
-        deployList.forEach(d => {
+        deployList.slice(0, 15).forEach(d => {
+          const created = new Date(d.createdAt).toLocaleString();
+          const stateClass = 'ad-state-' + (d.state || 'other').toLowerCase();
           html += '<li class="ad-deploy-item">';
-          html += '<span class="ad-state-badge ' + stateClass(d.state) + '">' + htmlEscape(d.state) + '</span>';
-          html += '<span class="ad-deploy-id">' + htmlEscape(d.uid || d.id).slice(0, 8) + '</span>';
-          html += '<span class="ad-deploy-branch">' + htmlEscape(d.meta?.githubCommitRef || d.gitSource?.ref || 'main') + '</span>';
-          html += '<span class="ad-deploy-time">' + fmtDate(d.created) + '</span>';
+          html += '<span class="ad-state-badge ' + stateClass + '">' + htmlEscape(d.state || 'unknown') + '</span>';
+          html += '<span class="ad-deploy-id">' + htmlEscape((d.uid || d.id || '').slice(0, 12)) + '</span>';
+          html += '<span class="ad-deploy-branch">' + htmlEscape(d.meta?.githubCommitRef || d.gitCommitRef || 'main') + '</span>';
+          html += '<span class="ad-deploy-time">' + created + '</span>';
           html += '</li>';
         });
         html += '</ul>';
         content.innerHTML = html;
       } catch (e) {
-        content.innerHTML = errorHtml('Error loading deployments: ' + e.message);
+        content.innerHTML = errorHtml(e.message);
       }
     }
   })();
   </script>
-
 </body>
 </html>
